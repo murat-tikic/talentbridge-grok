@@ -10,6 +10,11 @@ als Word-Dokument. Die KI ist **xAI Grok**. Oberfläche Deutsch/Englisch.
 Die GitHub-Pages-Version läuft im **Demo-Modus** und zeigt einen Beispielkandidaten (keine KI-Aufrufe, keine
 Kosten). Der Echtbetrieb braucht den Proxy (siehe unten), weil ein API-Key nie im Browser stehen darf.
 
+## Sofort ausprobieren mit eigenem Key (ohne Proxy)
+Auf der Demo-Seite den gelben Button **„Eigenen xAI-Key nutzen“** klicken und den Key (beginnt mit `xai-`) einfügen.
+Der Key bleibt nur im Speicher dieses Browser-Tabs und wird beim Schließen gelöscht. Danach ist der Live-Modus aktiv.
+Nur auf dem eigenen Gerät verwenden, nie auf fremden Rechnern. Die Anfragen gehen direkt vom Browser an xAI.
+
 ## So funktioniert es
 ```
 Browser (index.html) ──► Proxy (Cloudflare Worker, hält den xAI-Key) ──► api.x.ai (Grok)
