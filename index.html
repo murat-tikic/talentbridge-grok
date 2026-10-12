@@ -993,8 +993,8 @@ const T = {
     qc_score:'HR score', qc_gaps:'Gaps', qc_place:'Placement', qc_verdict:'Recommendation', qc_hint:'Details in the tabs below',
     demo_badge:'LIVE DEMO', demo_note:'Sample candidate — no data leaves your browser. For your own résumés:',
     demo_cta:'Request full access', demo_see:'▶  See example analysis',
-    demo_try:'This public demo shows a sample candidate only.\n\nTo analyze your own résumé with live AI (xAI Grok), enter your own xAI API key. It stays in this browser tab only and is deleted when you close the tab. Enter key now?',
-    code_btn:'🔓 Unlock live analysis (access code)', code_unlock:'Enter the access code to unlock live analysis:', code_wrong:'Wrong access code.', key_btn:'🔑 Use my own xAI key', key_prompt:'Paste your xAI API key (starts with xai-). It stays in this browser tab only.', key_format:'That does not look like an xAI key (it starts with xai-).', key_storage:'Your browser blocks tab storage — the key cannot be kept.', key_bad:'The xAI key was rejected and has been removed. Please enter a valid key.', key_active:'Live mode with your own xAI key (this tab only)', key_remove:'Remove key',
+    demo_try:'This public demo shows a sample candidate only.\n\nTo analyze your own résumé with live AI, enter your own API key (Google Gemini or xAI Grok). It stays in this browser tab only and is deleted when you close the tab. Enter key now?',
+    code_btn:'🔓 Unlock live analysis (access code)', code_unlock:'Enter the access code to unlock live analysis:', code_wrong:'Wrong access code.', key_btn:'🔑 Use my own API key', key_prompt:'Paste your API key (Google Gemini: AIza… or xAI Grok: xai-…). It stays in this browser tab only.', key_format:'That does not look like a Gemini (AIza…) or xAI (xai-…) key.', quota:'The daily free quota of this AI key is used up. Please try again tomorrow or use another key.', key_storage:'Your browser blocks tab storage — the key cannot be kept.', key_bad:'The API key was rejected and has been removed. Please enter a valid key.', key_active:'Live mode with an API key (this tab only)', key_remove:'Remove key',
   },
   de: {
     _title:'TalentBridge — Kandidaten-Intelligenz', brand_tag:'KI-Recruiter-Plattform',
@@ -1052,8 +1052,8 @@ const T = {
     qc_score:'HR-Score', qc_gaps:'Lücken', qc_place:'Vermittlung', qc_verdict:'Empfehlung', qc_hint:'Details in den Tabs unten',
     demo_badge:'LIVE-DEMO', demo_note:'Beispiel-Kandidat — keine Daten verlassen deinen Browser. Für eigene Lebensläufe:',
     demo_cta:'Vollzugang anfragen', demo_see:'▶  Beispiel-Analyse ansehen',
-    demo_try:'Diese öffentliche Demo zeigt nur einen Beispiel-Kandidaten.\n\nUm einen eigenen Lebenslauf mit Live-KI (xAI Grok) zu analysieren, trage deinen eigenen xAI-API-Key ein. Er bleibt nur in diesem Browser-Tab und wird beim Schließen gelöscht. Jetzt Key eintragen?',
-    code_btn:'🔓 Live-Analyse freischalten (Zugangscode)', code_unlock:'Zugangscode eingeben, um die Live-Analyse freizuschalten:', code_wrong:'Falscher Zugangscode.', key_btn:'🔑 Eigenen xAI-Key nutzen', key_prompt:'xAI-API-Key einfügen (beginnt mit xai-). Er bleibt nur in diesem Browser-Tab.', key_format:'Das sieht nicht nach einem xAI-Key aus (er beginnt mit xai-).', key_storage:'Dein Browser blockiert den Tab-Speicher — der Key kann nicht gehalten werden.', key_bad:'Der xAI-Key wurde abgelehnt und entfernt. Bitte einen gültigen Key eintragen.', key_active:'Live-Modus mit deinem eigenen xAI-Key (nur dieser Tab)', key_remove:'Key entfernen',
+    demo_try:'Diese öffentliche Demo zeigt nur einen Beispiel-Kandidaten.\n\nUm einen eigenen Lebenslauf mit Live-KI zu analysieren, trage deinen eigenen API-Key ein (Google Gemini oder xAI Grok). Er bleibt nur in diesem Browser-Tab und wird beim Schließen gelöscht. Jetzt Key eintragen?',
+    code_btn:'🔓 Live-Analyse freischalten (Zugangscode)', code_unlock:'Zugangscode eingeben, um die Live-Analyse freizuschalten:', code_wrong:'Falscher Zugangscode.', key_btn:'🔑 Eigenen API-Key nutzen', key_prompt:'API-Key einfügen (Google Gemini: AIza… oder xAI Grok: xai-…). Er bleibt nur in diesem Browser-Tab.', key_format:'Das sieht nicht nach einem Gemini- (AIza…) oder xAI-Key (xai-…) aus.', quota:'Das tägliche Gratis-Kontingent dieses KI-Keys ist aufgebraucht. Bitte morgen erneut versuchen oder einen anderen Key nutzen.', key_storage:'Dein Browser blockiert den Tab-Speicher — der Key kann nicht gehalten werden.', key_bad:'Der API-Key wurde abgelehnt und entfernt. Bitte einen gültigen Key eintragen.', key_active:'Live-Modus mit einem API-Key (nur dieser Tab)', key_remove:'Key entfernen',
   }
 };
 let LANG = localStorage.getItem('tb_lang') || 'en';
@@ -1090,9 +1090,20 @@ function applyLang(){
 const API_URL_CFG = window.TB_API_URL || ((location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? '/v1/chat' : '');
 // Eigener xAI-Key direkt im Browser (nur Tab-Speicher, wird beim Schließen des Tabs gelöscht). xAI erlaubt
 // Browser-Zugriffe (CORS), daher braucht dieser Weg keinen Proxy. Nur auf dem eigenen Gerät verwenden.
-let DIRECT_KEY = '';
-try { DIRECT_KEY = sessionStorage.getItem('tb_xai_key') || ''; } catch (e) {}
-const DIRECT_MODEL = window.TB_MODEL || 'grok-4.20-0309-non-reasoning';
+let DIRECT = null;   // {p: 'gemini' | 'xai', k: '<key>'}
+try {
+  const raw = sessionStorage.getItem('tb_llm');
+  if (raw) DIRECT = JSON.parse(raw);
+  else { const alt = sessionStorage.getItem('tb_xai_key'); if (alt) DIRECT = {p: 'xai', k: alt}; }
+} catch (e) { DIRECT = null; }
+const DIRECT_KEY = (DIRECT && DIRECT.k) || '';
+const XAI_MODEL = window.TB_MODEL_XAI || 'grok-4.20-0309-non-reasoning';
+const GEMINI_MODEL = window.TB_MODEL_GEMINI || 'gemini-2.5-flash';
+function providerFromKey(k) {
+  if (/^xai-[A-Za-z0-9_-]{20,}$/.test(k)) return 'xai';
+  if (/^AIza[A-Za-z0-9_-]{30,}$/.test(k)) return 'gemini';
+  return '';
+}
 const DEMO = new URLSearchParams(location.search).has('demo') || /demo/i.test(location.hostname) || (!API_URL_CFG && !DIRECT_KEY);
 const CONTACT_URL = 'mailto:tikic.murat@gmail.com?subject=TalentBridge%20—%20Full%20Access';  // ← anpassbar (z. B. Calendly)
 
@@ -1195,8 +1206,9 @@ function loadSample(){
 function setOwnKey() {
   const k = (prompt(t('key_prompt')) || '').trim();
   if (!k) return;
-  if (!/^xai-[A-Za-z0-9_-]{20,}$/.test(k)) { alert(t('key_format')); return; }
-  try { sessionStorage.setItem('tb_xai_key', k); } catch (e) { alert(t('key_storage')); return; }
+  const p = providerFromKey(k);
+  if (!p) { alert(t('key_format')); return; }
+  try { sessionStorage.setItem('tb_llm', JSON.stringify({p, k})); } catch (e) { alert(t('key_storage')); return; }
   location.reload();
 }
 // Verschlüsselter Key aus config.js (window.TB_SEALED): mit dem Zugangscode im Browser entschlüsseln (WebCrypto).
@@ -1212,13 +1224,15 @@ async function unlockWithCode() {
     const aes = await crypto.subtle.deriveKey({name: 'PBKDF2', salt: b64(s.salt), iterations: s.iter, hash: 'SHA-256'},
       base, {name: 'AES-GCM', length: 256}, false, ['decrypt']);
     const plain = await crypto.subtle.decrypt({name: 'AES-GCM', iv: b64(s.iv)}, aes, b64(s.ct));
-    sessionStorage.setItem('tb_xai_key', new TextDecoder().decode(plain));
+    const txt = new TextDecoder().decode(plain);
+    const obj = txt.trim().startsWith('{') ? JSON.parse(txt) : {p: 'xai', k: txt};
+    sessionStorage.setItem('tb_llm', JSON.stringify(obj));
     location.reload();
   } catch (e) {
     alert(t('code_wrong'));
   }
 }
-function clearOwnKey() { try { sessionStorage.removeItem('tb_xai_key'); } catch (e) {} location.reload(); }
+function clearOwnKey() { try { sessionStorage.removeItem('tb_llm'); sessionStorage.removeItem('tb_xai_key'); } catch (e) {} location.reload(); }
 function demoTryOwn(){ if (window.TB_SEALED) { unlockWithCode(); return; } if (confirm(t('demo_try'))) setOwnKey(); }
 function initDemo(){
   if (!DEMO && DIRECT_KEY && !API_URL_CFG) {
@@ -1348,15 +1362,55 @@ async function callLLM(messages, maxTokens=3500, _retry=false) {
   if (code) headers['x-access-code'] = code;
 
   let r;
+  if (!API_URL_CFG && DIRECT_KEY && DIRECT.p === 'gemini') {
+    // Google Gemini (generateContent). Denken aus (sonst frisst es das Token-Budget), JSON-Antwort erzwungen.
+    const msgs = flattenForLLM(messages);
+    const gbody = JSON.stringify({
+      contents: msgs.map(m => ({role: m.role === 'assistant' ? 'model' : 'user', parts: [{text: m.content}]})),
+      generationConfig: {maxOutputTokens: maxTokens, temperature: 0.2, responseMimeType: 'application/json',
+                         thinkingConfig: {thinkingBudget: 0}}
+    });
+    // Robust gegen kurzzeitige Überlast (503) und Kontingent-Spitzen (429): erneut versuchen, dann auf ein
+    // Ausweich-Modell wechseln (eigenes Kontingent). Nur bei vorübergehenden Fehlern, nie bei falschem Key.
+    const versuche = [GEMINI_MODEL, GEMINI_MODEL, 'gemini-flash-latest', 'gemini-2.5-flash-lite'];
+    let gr, graw, gd;
+    for (let i = 0; i < versuche.length; i++) {
+      gr = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${versuche[i]}:generateContent`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'x-goog-api-key': DIRECT_KEY},
+        body: gbody
+      });
+      graw = await gr.text();
+      try { gd = JSON.parse(graw); } catch (e) { gd = null; }
+      const vorUebergehend = [429, 500, 502, 503, 504].includes(gr.status);
+      if (!vorUebergehend || i === versuche.length - 1) break;
+      try { log(`AI busy (HTTP ${gr.status}) — retrying with ${versuche[i + 1]} …`, 'info'); } catch (e) {}
+      await new Promise(res => setTimeout(res, 1500 * (i + 1)));
+    }
+    if (!gd) throw new Error(`API returned invalid JSON (HTTP ${gr.status}): ${graw.slice(0, 200)}`);
+    if (gd.error) {
+      const m = gd.error.message || '';
+      if (gr.status === 429) throw new Error(t('quota'));
+      if (gr.status === 401 || gr.status === 403 || (gr.status === 400 && /API key/i.test(m))) {
+        try { sessionStorage.removeItem('tb_llm'); } catch (e) {}
+        throw new Error(t('key_bad'));
+      }
+      throw new Error('API error: ' + m.slice(0, 200));
+    }
+    const cand = gd.candidates && gd.candidates[0];
+    if (!cand || !cand.content) throw new Error('The AI returned no answer' + (gd.promptFeedback && gd.promptFeedback.blockReason ? ' (blocked: ' + gd.promptFeedback.blockReason + ')' : '') + '.');
+    if (cand.finishReason === 'MAX_TOKENS') throw new Error('The AI answer was cut off (too long). Please try a shorter CV.');
+    return cand.content.parts.map(p => p.text || '').join('');
+  }
   if (!API_URL_CFG && DIRECT_KEY) {
     r = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
       headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + DIRECT_KEY},
-      body: JSON.stringify({model: DIRECT_MODEL, messages: flattenForLLM(messages), max_tokens: maxTokens,
+      body: JSON.stringify({model: XAI_MODEL, messages: flattenForLLM(messages), max_tokens: maxTokens,
                             temperature: 0.2, stream: false})
     });
     if (r.status === 401 || r.status === 403) {
-      try { sessionStorage.removeItem('tb_xai_key'); } catch (e) {}
+      try { sessionStorage.removeItem('tb_llm'); } catch (e) {}
       throw new Error(t('key_bad'));
     }
   } else {
