@@ -994,7 +994,7 @@ const T = {
     demo_badge:'LIVE DEMO', demo_note:'Sample candidate — no data leaves your browser. For your own résumés:',
     demo_cta:'Request full access', demo_see:'▶  See example analysis',
     demo_try:'This public demo shows a sample candidate only.\n\nTo analyze your own résumé with live AI (xAI Grok), enter your own xAI API key. It stays in this browser tab only and is deleted when you close the tab. Enter key now?',
-    key_btn:'🔑 Use my own xAI key', key_prompt:'Paste your xAI API key (starts with xai-). It stays in this browser tab only.', key_format:'That does not look like an xAI key (it starts with xai-).', key_storage:'Your browser blocks tab storage — the key cannot be kept.', key_bad:'The xAI key was rejected and has been removed. Please enter a valid key.', key_active:'Live mode with your own xAI key (this tab only)', key_remove:'Remove key',
+    code_btn:'🔓 Unlock live analysis (access code)', code_unlock:'Enter the access code to unlock live analysis:', code_wrong:'Wrong access code.', key_btn:'🔑 Use my own xAI key', key_prompt:'Paste your xAI API key (starts with xai-). It stays in this browser tab only.', key_format:'That does not look like an xAI key (it starts with xai-).', key_storage:'Your browser blocks tab storage — the key cannot be kept.', key_bad:'The xAI key was rejected and has been removed. Please enter a valid key.', key_active:'Live mode with your own xAI key (this tab only)', key_remove:'Remove key',
   },
   de: {
     _title:'TalentBridge — Kandidaten-Intelligenz', brand_tag:'KI-Recruiter-Plattform',
@@ -1053,7 +1053,7 @@ const T = {
     demo_badge:'LIVE-DEMO', demo_note:'Beispiel-Kandidat — keine Daten verlassen deinen Browser. Für eigene Lebensläufe:',
     demo_cta:'Vollzugang anfragen', demo_see:'▶  Beispiel-Analyse ansehen',
     demo_try:'Diese öffentliche Demo zeigt nur einen Beispiel-Kandidaten.\n\nUm einen eigenen Lebenslauf mit Live-KI (xAI Grok) zu analysieren, trage deinen eigenen xAI-API-Key ein. Er bleibt nur in diesem Browser-Tab und wird beim Schließen gelöscht. Jetzt Key eintragen?',
-    key_btn:'🔑 Eigenen xAI-Key nutzen', key_prompt:'xAI-API-Key einfügen (beginnt mit xai-). Er bleibt nur in diesem Browser-Tab.', key_format:'Das sieht nicht nach einem xAI-Key aus (er beginnt mit xai-).', key_storage:'Dein Browser blockiert den Tab-Speicher — der Key kann nicht gehalten werden.', key_bad:'Der xAI-Key wurde abgelehnt und entfernt. Bitte einen gültigen Key eintragen.', key_active:'Live-Modus mit deinem eigenen xAI-Key (nur dieser Tab)', key_remove:'Key entfernen',
+    code_btn:'🔓 Live-Analyse freischalten (Zugangscode)', code_unlock:'Zugangscode eingeben, um die Live-Analyse freizuschalten:', code_wrong:'Falscher Zugangscode.', key_btn:'🔑 Eigenen xAI-Key nutzen', key_prompt:'xAI-API-Key einfügen (beginnt mit xai-). Er bleibt nur in diesem Browser-Tab.', key_format:'Das sieht nicht nach einem xAI-Key aus (er beginnt mit xai-).', key_storage:'Dein Browser blockiert den Tab-Speicher — der Key kann nicht gehalten werden.', key_bad:'Der xAI-Key wurde abgelehnt und entfernt. Bitte einen gültigen Key eintragen.', key_active:'Live-Modus mit deinem eigenen xAI-Key (nur dieser Tab)', key_remove:'Key entfernen',
   }
 };
 let LANG = localStorage.getItem('tb_lang') || 'en';
@@ -1199,8 +1199,27 @@ function setOwnKey() {
   try { sessionStorage.setItem('tb_xai_key', k); } catch (e) { alert(t('key_storage')); return; }
   location.reload();
 }
+// Verschlüsselter Key aus config.js (window.TB_SEALED): mit dem Zugangscode im Browser entschlüsseln (WebCrypto).
+// Der Key landet nur im Tab-Speicher; ohne Code ist er nicht lesbar.
+async function unlockWithCode() {
+  const s = window.TB_SEALED;
+  if (!s) return;
+  const code = (prompt(t('code_unlock')) || '').trim().toUpperCase();
+  if (!code) return;
+  try {
+    const b64 = x => Uint8Array.from(atob(x), c => c.charCodeAt(0));
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(code), 'PBKDF2', false, ['deriveKey']);
+    const aes = await crypto.subtle.deriveKey({name: 'PBKDF2', salt: b64(s.salt), iterations: s.iter, hash: 'SHA-256'},
+      base, {name: 'AES-GCM', length: 256}, false, ['decrypt']);
+    const plain = await crypto.subtle.decrypt({name: 'AES-GCM', iv: b64(s.iv)}, aes, b64(s.ct));
+    sessionStorage.setItem('tb_xai_key', new TextDecoder().decode(plain));
+    location.reload();
+  } catch (e) {
+    alert(t('code_wrong'));
+  }
+}
 function clearOwnKey() { try { sessionStorage.removeItem('tb_xai_key'); } catch (e) {} location.reload(); }
-function demoTryOwn(){ if (confirm(t('demo_try'))) setOwnKey(); }
+function demoTryOwn(){ if (window.TB_SEALED) { unlockWithCode(); return; } if (confirm(t('demo_try'))) setOwnKey(); }
 function initDemo(){
   if (!DEMO && DIRECT_KEY && !API_URL_CFG) {
     const k = document.createElement('div');
@@ -1217,6 +1236,7 @@ function initDemo(){
   b.innerHTML = '<span style="background:rgba(255,255,255,.22);padding:2px 8px;border-radius:6px;letter-spacing:1px" data-i18n="demo_badge">LIVE DEMO</span>'
     + '<span style="opacity:.95" data-i18n="demo_note"></span>'
     + '<button onclick="loadSample()" style="cursor:pointer;border:none;border-radius:6px;padding:5px 12px;font-weight:700;background:#fff;color:#5B5EA6" data-i18n="demo_see"></button>'
+    + (window.TB_SEALED ? '<button onclick="unlockWithCode()" style="cursor:pointer;border:none;border-radius:6px;padding:5px 12px;font-weight:700;background:#FFD54A;color:#3a2f00" data-i18n="code_btn"></button>' : '')
     + '<button onclick="setOwnKey()" style="cursor:pointer;border:none;border-radius:6px;padding:5px 12px;font-weight:700;background:#FFD54A;color:#3a2f00" data-i18n="key_btn"></button>'
     + '<a href="'+CONTACT_URL+'" style="cursor:pointer;border:1px solid rgba(255,255,255,.6);border-radius:6px;padding:5px 12px;font-weight:700;color:#fff;text-decoration:none" data-i18n="demo_cta"></a>';
   document.body.insertBefore(b, document.body.firstChild);

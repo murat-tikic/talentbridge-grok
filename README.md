@@ -15,6 +15,12 @@ Auf der Demo-Seite den gelben Button **„Eigenen xAI-Key nutzen“** klicken un
 Der Key bleibt nur im Speicher dieses Browser-Tabs und wird beim Schließen gelöscht. Danach ist der Live-Modus aktiv.
 Nur auf dem eigenen Gerät verwenden, nie auf fremden Rechnern. Die Anfragen gehen direkt vom Browser an xAI.
 
+## Freischalten mit Zugangscode (für Gäste ohne eigenen Key)
+`config.js` enthält den xAI-Key **nur verschlüsselt** (`tools/seal.mjs`, AES-256-GCM, PBKDF2 mit 600.000 Runden).
+Wer den Zugangscode kennt, klickt auf **„Live-Analyse freischalten“**, gibt ihn ein, und die Seite entschlüsselt den Key
+im Browser (nur Tab-Speicher). Wer den Code weitergibt, gibt damit auch Zugriff auf den Key. Deshalb: Ausgabenlimit
+bei xAI setzen und den Key nach dem Termin erneuern. Neuer Code/Key: `XAI_API_KEY=xai-... node tools/seal.mjs`.
+
 ## So funktioniert es
 ```
 Browser (index.html) ──► Proxy (Cloudflare Worker, hält den xAI-Key) ──► api.x.ai (Grok)
